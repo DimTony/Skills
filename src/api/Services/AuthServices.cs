@@ -96,7 +96,7 @@ namespace Skills.Services
                     var resendResult = await ResendVerificationCodeAsync(existingUser.Id, existingUser.Email);
                     if (!resendResult.Succeeded)
                     {
-                        return AuthResult.Failure("Failed to resend verification code. Please try again.");
+                        return AuthResult.Failure("Failed to send verification code. Please try again.");
                     }
 
                     // Return success with pending verification status
@@ -373,7 +373,7 @@ namespace Skills.Services
             {
                 _logger.LogError("Failed to resend verification code", ex,
           new { Email = normalizedEmail });
-                return AuthResult.Failure("Failed to resend verification code");
+                return AuthResult.Failure("Failed to send verification code");
             }
         }
 
@@ -798,7 +798,7 @@ namespace Skills.Services
             {
                 _logger.LogError("Failed to resend verification code for user {UserId}", ex,
         new { User = userId });
-                return OperationResult.Failure("Failed to resend verification code");
+                return OperationResult.Failure("Failed to send verification code");
             }
         }
 
