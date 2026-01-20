@@ -121,7 +121,7 @@ namespace Skills.DTOs
 
     public class AuthResult
     {
-        public int StatusCode { get; set; }
+        public int Status { get; set; }
         public bool Succeeded { get; set; }
         public string? Message { get; set; }
         public UserTokenDTO? Data { get; set; }
@@ -134,7 +134,7 @@ namespace Skills.DTOs
         {
             return new AuthResult
             {
-                StatusCode = 200,
+                Status = 200,
                 Succeeded = true,
                 Message = "User Authenticated Successfully!",
                 Data = new UserTokenDTO
@@ -150,7 +150,7 @@ namespace Skills.DTOs
         {
             return new AuthResult
             {
-                StatusCode = 429,
+                Status = 429,
                 Succeeded = true,
                 //IsPendingVerification = true,
                 //UserId = userId,
@@ -164,7 +164,7 @@ namespace Skills.DTOs
         {
             return new AuthResult
             {
-                StatusCode = 400,
+                Status = 400,
                 Succeeded = false,
                 Message = "Authentication Failed",
                 Data = null,
