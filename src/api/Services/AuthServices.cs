@@ -274,7 +274,7 @@ namespace Skills.Services
                     return AuthResult.Failure("User with this phone number already exists");
                 }
 
-                // Start database transaction for new user
+                
                 await using var newUserTransaction = await _context.Database.BeginTransactionAsync();
 
                 try
