@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using System.Net;
 using System.Net.Mail;
 using System.Numerics;
+using System.Threading.Tasks;
+
 
 namespace Skills.Services
 {
@@ -340,4 +342,60 @@ namespace Skills.Services
 
 
     }
+
+
+    public interface IMailService
+    {
+        Task SendEmailAsync(string to, string subject, string htmlBody);
+    }
+
+    public class MailService : IMailService
+    {
+        private readonly string _smtpHost = "smtp.mailtrap.io";
+        private readonly int _smtpPort = 587;
+        private readonly string _smtpUser = "<your_mailtrap_username>";
+        private readonly string _smtpPass = "<your_mailtrap_password>";
+        private readonly IConfiguration _configuration;
+        private readonly ILoggingService _logger;
+
+        public MailService(IConfiguration configuration, ILoggingService logger)
+        {
+            _configuration = configuration;
+            _logger = logger;
+        }
+
+        public async Task SendEmailAsync(string to, string subject, string htmlBody)
+        {
+
+            var smtpHost = _configuration["MailTrap:Host"];
+            var smtpPort = int.Parse(_configuration["MailTrap:Port"] ?? "587");
+
+            var fromEmail = _configuration["MailTrap:FromEmail"] ?? "noreply@skills.com";
+            var fromName = _configuration["MailTrap:FromName"] ?? "Skills";
+            var smtpUser = _configuration["MailTrap:Username"];
+            var smtpPass = _configuration["MailTrap:Password"];
+
+            using var client = new SmtpClient(smtpHost, smtpPort)
+            {
+                Credentials = new NetworkCredential(smtpUser, smtpPass),
+                EnableSsl = true
+            };
+
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress(fromEmail, fromName),
+                Subject = subject,
+                Body = htmlBody,
+                IsBodyHtml = true
+            };
+
+            mailMessage.To.Add(to);
+
+            //await client.SendMailAsync(mailMessage);
+            client.Send(mailMessage);
+
+            //await client.Send(fromEmail, to, subject, htmlBody)
+        }
+    }
+
 }

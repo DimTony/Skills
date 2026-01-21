@@ -203,12 +203,12 @@ namespace Skills.DTOs
         public string? ProfilePhoto { get; set; }
 
         // User-specific
-        public ICollection<ServicePreference>? ServicePreferences { get; set; }
+        //public ICollection<ServicePreference>? ServicePreferences { get; set; }
 
-        // Artisan-specific
-        public string? BusinessName { get; set; }
+        //// Artisan-specific
+        //public string? BusinessName { get; set; }
 
-        public List<ServiceDTO>? Services { get; set; }
+        //public List<ServiceDTO>? Services { get; set; }
 
         public static UserDTO FromUser(ApplicationUser user)
         {
@@ -222,8 +222,8 @@ namespace Skills.DTOs
                 FullName = user.FullName,
                 PhoneNumber = user.PhoneNumber!,
                 ProfilePhoto = user.ProfilePhoto,
-                BusinessName = user.ArtisanProfile?.BusinessName,
-                ServicePreferences = user.UserPreferences
+                //BusinessName = user.ArtisanProfile?.BusinessName,
+                //ServicePreferences = user.UserPreferences
             };
         }
     }
