@@ -143,8 +143,14 @@ builder.Services.AddSingleton(Log.Logger);
 // Register services
 builder.Services.AddScoped<ILoggingService, LoggingService>();
 builder.Services.AddHttpClient<EmailService>();
+builder.Services.AddHttpClient<MailService>();
+builder.Services.AddHttpClient<GMailService>();
+builder.Services.AddScoped<IGMailService, GMailService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IMailService, MailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IWorkerService, WorkerService>();
 
 var app = builder.Build();
 

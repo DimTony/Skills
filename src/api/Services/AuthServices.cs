@@ -544,7 +544,7 @@ namespace Skills.Services
                 if (!user.IsActive)
                     return AuthResult.Failure("Account is inactive");
 
-                if (user.Status == UserStatus.Locked || user.Status == UserStatus.Suspended)
+                if (user.Status != UserStatus.Active)
                     return AuthResult.Failure($"Account is {user.Status.ToString().ToLower()}");
 
                 var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
