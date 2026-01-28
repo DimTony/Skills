@@ -7,7 +7,9 @@ using Skills.Data;
 using Skills.DTOs;
 using Skills.Models;
 using Skills.Services;
+using System.Collections.Concurrent;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Security.Claims;
@@ -79,13 +81,14 @@ namespace Skills.Services
         public async Task<AuthResult> RegisterAsync(RegisterRequest request)
         {
             var correlationId = Guid.NewGuid().ToString();
+            var overallTimer = Stopwatch.StartNew();
 
             try
             {
                 _logger.LogInfo("Registration attempt started",
                     new { CorrelationId = correlationId, Email = request.Email });
 
-                // IP rate limit
+                // IP rate limit check
                 var ipRateLimit = await CheckIpRateLimit(
                     request.IpAddress,
                     "Registration",
@@ -97,10 +100,10 @@ namespace Skills.Services
                 {
                     await LogAuditAsync(null, "Registration", request.IpAddress, null,
                         false, "IP rate limit exceeded", correlationId);
-
                     return ipRateLimit;
                 }
 
+                // Validate input
                 var validationResult = ValidateUserRegistrationInput(request);
                 if (!validationResult.IsValid)
                 {
@@ -112,90 +115,118 @@ namespace Skills.Services
 
                 await using var transaction = await _context.Database.BeginTransactionAsync();
 
-                
-                var existingUser = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+                try
+                {
+                    // Check existing user
+                    var existingUser = await _context.Users
+                        .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
 
-                if (existingUser != null)
+                    if (existingUser != null)
+                    {
+                        await transaction.RollbackAsync();
+                        return await HandleExistingUserRegistration(existingUser, request, correlationId);
+                    }
+
+                    // Check phone uniqueness
+                    var phoneExists = await _context.Users
+                        .AnyAsync(u => u.PhoneNumber == sanitizedPhone);
+
+                    if (phoneExists)
+                    {
+                        await transaction.RollbackAsync();
+                        return AuthResult.Failure("User with this phone number already exists");
+                    }
+
+                    // Create user and related data
+                    var (result, user) = await CreateNewUser(
+                        request,
+                        normalizedEmail,
+                        sanitizedPhone,
+                        correlationId);
+
+                    if (!result || user == null || string.IsNullOrWhiteSpace(user.Email))
+                    {
+                        await transaction.RollbackAsync();
+                        return AuthResult.Failure("Error occurred creating user");
+                    }
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInfo("User registration transaction completed", new
+                    {
+                        CorrelationId = correlationId,
+                        UserId = user.Id,
+                        DurationMs = overallTimer.ElapsedMilliseconds
+                    });
+
+                    // ===== NON-BLOCKING EMAIL SENDING =====
+                    // Fire and forget - don't wait for email
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await GenerateAndSendVerificationCodeAsync(user.Id, user.Email, correlationId);
+                            _logger.LogInfo("Verification email sent successfully", new
+                            {
+                                CorrelationId = correlationId,
+                                UserId = user.Id
+                            });
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogError("Background verification email failed", emailEx, new
+                            {
+                                CorrelationId = correlationId,
+                                UserId = user.Id
+                            });
+                            // Don't throw - this is fire-and-forget
+                        }
+                    });
+
+                    // Log audit (non-blocking too if you want even faster response)
+                    await LogAuditAsync(
+                        user.Id,
+                        "Registration",
+                        null,
+                        null,
+                        true,
+                        $"User registered as {request.UserType} - pending verification",
+                        correlationId);
+
+                    _logger.LogInfo("User registration completed", new
+                    {
+                        CorrelationId = correlationId,
+                        UserId = user.Id,
+                        TotalDurationMs = overallTimer.ElapsedMilliseconds
+                    });
+
+                    // Return immediately - don't wait for email
+                    return AuthResult.PendingVerification(
+                        user.Id,
+                        user.Email,
+                        "Registration successful. Please check your email for the verification code."
+                    );
+                }
+                catch (Exception transactionEx)
                 {
                     await transaction.RollbackAsync();
-                    return await HandleExistingUserRegistration(existingUser, request, correlationId);
+                    _logger.LogError("Transaction failed during registration", transactionEx,
+                        new { CorrelationId = correlationId, Email = normalizedEmail });
+                    throw;
                 }
-
-                
-                var phoneExists = await _context.Users
-                    .AnyAsync(u => u.PhoneNumber == sanitizedPhone);
-
-                if (phoneExists)
-                {
-                    await transaction.RollbackAsync();
-                    return AuthResult.Failure("User with this phone number already exists");
-                }
-
-                
-                var (result, user) = await CreateNewUser(
-                    request,
-                    normalizedEmail,
-                    sanitizedPhone,
-                    correlationId);
-
-                if (!result || user == null || string.IsNullOrWhiteSpace(user.Email))
-                {
-                    await transaction.RollbackAsync();
-                    
-                    return AuthResult.Failure("Error occured creating user");
-
-                }
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                
-                var verificationResult = await GenerateAndSendVerificationCodeAsync(
-                    user.Id,
-                    user.Email,
-                    correlationId);
-
-                if (!verificationResult.Succeeded)
-                {
-                    _logger.LogWarning("User created but email failed",
-                        new { CorrelationId = correlationId, UserId = user.Id });
-
-                  //  return AuthResult.PendingVerification(
-                  //user.Id,
-                  //user.Email,
-                  //"Account created, but verification email failed. Please request a new code.");
-                    //return AuthResult.Failure(
-                    //    "Account created, but verification email failed. Please request a new code.");
-                }
-
-                await LogAuditAsync(
-                    user.Id,
-                    "Registration",
-                    null,
-                    null,
-                    true,
-                    $"User registered as {request.UserType} - pending verification",
-                    correlationId);
-
-                _logger.LogInfo("User registration successful",
-                    new { CorrelationId = correlationId, UserId = user.Id });
-
-                return AuthResult.PendingVerification(
-                    user.Id,
-                    user.Email,
-                    "Registration successful. Please check your email for the verification code.");
             }
             catch (Exception ex)
             {
-                _logger.LogError("Registration failed", ex,
-                    new { CorrelationId = correlationId, Email = request.Email });
-
+                _logger.LogError("Registration failed", ex, new
+                {
+                    CorrelationId = correlationId,
+                    Email = request.Email,
+                    DurationMs = overallTimer.ElapsedMilliseconds
+                });
                 return AuthResult.Failure("Registration failed. Please try again later.");
             }
         }
-
-
         public async Task<AuthResult> RegisterOldAsync(RegisterRequest request)
         {
             var correlationId = Guid.NewGuid().ToString();
@@ -828,6 +859,254 @@ namespace Skills.Services
     string sanitizedPhone,
     string correlationId)
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            try
+            {
+                // Validate role exists (with caching)
+                var roleName = request.UserType.ToString();
+                if (!await RoleExistsAsync(request.UserType))
+                {
+                    _logger.LogError("Role does not exist", null,
+                        new { CorrelationId = correlationId, Role = roleName });
+                    return (false, null);
+                }
+
+                // Create user
+                var user = new ApplicationUser
+                {
+                    UserName = normalizedEmail,
+                    Email = normalizedEmail,
+                    FirstName = SanitizeInput(request.FirstName, 50),
+                    LastName = SanitizeInput(request.LastName, 50),
+                    PhoneNumber = sanitizedPhone,
+                    UserType = request.UserType,
+                    Status = UserStatus.Pending,
+                    EmailVerified = false,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _logger.LogDebug("Creating user account", new
+                {
+                    CorrelationId = correlationId,
+                    Email = normalizedEmail
+                });
+
+                var createResult = await _userManager.CreateAsync(user, request.Password);
+                if (!createResult.Succeeded)
+                {
+                    var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    _logger.LogWarning("User creation failed", new
+                    {
+                        CorrelationId = correlationId,
+                        Email = normalizedEmail,
+                        Errors = errors,
+                        DurationMs = sw.ElapsedMilliseconds
+                    });
+                    return (false, null);
+                }
+
+                _logger.LogDebug("User account created, assigning role", new
+                {
+                    CorrelationId = correlationId,
+                    UserId = user.Id,
+                    Role = roleName
+                });
+
+                // Assign role
+                var roleResult = await _userManager.AddToRoleAsync(user, roleName);
+                if (!roleResult.Succeeded)
+                {
+                    var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                    _logger.LogError("Role assignment failed", null, new
+                    {
+                        CorrelationId = correlationId,
+                        UserId = user.Id,
+                        Role = roleName,
+                        Errors = errors,
+                        DurationMs = sw.ElapsedMilliseconds
+                    });
+
+                    // Cleanup: delete the user since role assignment failed
+                    await _userManager.DeleteAsync(user);
+                    return (false, null);
+                }
+
+                _logger.LogDebug("Role assigned, creating type-specific data", new
+                {
+                    CorrelationId = correlationId,
+                    UserId = user.Id,
+                    UserType = request.UserType
+                });
+
+                // Create all type-specific data in a single transaction
+                await CreateUserTypeSpecificDataOptimized(user, request, correlationId);
+
+                // Single SaveChanges for all related entities
+                await _context.SaveChangesAsync();
+
+                _logger.LogInfo("User creation completed successfully", new
+                {
+                    CorrelationId = correlationId,
+                    UserId = user.Id,
+                    UserType = request.UserType,
+                    DurationMs = sw.ElapsedMilliseconds
+                });
+
+                return (true, user);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Exception during user creation", ex, new
+                {
+                    CorrelationId = correlationId,
+                    Email = normalizedEmail,
+                    DurationMs = sw.ElapsedMilliseconds
+                });
+                return (false, null);
+            }
+        }
+
+
+        private async Task CreateUserTypeSpecificDataOptimized(
+            ApplicationUser user,
+            RegisterRequest request,
+            string correlationId)
+        {
+            if (request.UserType == UserType.User)
+            {
+                // Store user service preferences
+                if (request.ServicePreferences?.Any() == true)
+                {
+                    var validPreferences = request.ServicePreferences
+                        .Where(sp => !string.IsNullOrWhiteSpace(sp))
+                        .Distinct()
+                        .Select(sp => new ServicePreference
+                        {
+                            UserId = user.Id,
+                            ServiceCategory = SanitizeInput(sp, 100) ?? sp,
+                            CreatedAt = DateTime.UtcNow
+                        })
+                        .ToList();
+
+                    if (validPreferences.Any())
+                    {
+                        _context.ServicePreferences.AddRange(validPreferences);
+                        _logger.LogDebug("Added {Count} service preferences", new
+                        {
+                            CorrelationId = correlationId,
+                            UserId = user.Id,
+                            Count = validPreferences.Count
+                        });
+                    }
+                }
+            }
+            else if (request.UserType == UserType.Artisan)
+            {
+                // Create artisan profile
+                var artisanProfile = new ArtisanProfile
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    BusinessName = SanitizeInput(request.BusinessName, 100),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.ArtisanProfiles.Add(artisanProfile);
+
+                _logger.LogDebug("Created artisan profile", new
+                {
+                    CorrelationId = correlationId,
+                    UserId = user.Id,
+                    ProfileId = artisanProfile.Id
+                });
+
+                // NOTE: We need to save here to get the artisan profile ID
+                // for the foreign key relationship with Service
+                await _context.SaveChangesAsync();
+
+                // Add artisan's first service (if provided)
+                if (request.Service != null)
+                {
+                    var service = new Service
+                    {
+                        Id = Guid.NewGuid(),
+                        ArtisanId = artisanProfile.Id,
+                        Name = SanitizeInput(request.Service.Name, 100) ?? request.Service.Name,
+                        Category = request.Service.Category,
+                        PricingModel = request.Service.PricingModel,
+                        MinPrice = request.Service.MinPrice,
+                        MaxPrice = request.Service.MaxPrice,
+                        Availability = request.Service.Availability,
+                        Notes = SanitizeInput(request.Service.Notes, 500),
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    _context.Services.Add(service);
+
+                    _logger.LogDebug("Added artisan service", new
+                    {
+                        CorrelationId = correlationId,
+                        UserId = user.Id,
+                        ServiceId = service.Id,
+                        ServiceName = service.Name
+                    });
+                }
+            }
+        }
+
+        // Role caching helper
+        private static readonly ConcurrentDictionary<UserType, bool> _roleExistsCache = new();
+        private static readonly SemaphoreSlim _roleCacheLock = new(1, 1);
+
+        private async Task<bool> RoleExistsAsync(UserType userType)
+        {
+            // Check cache first
+            if (_roleExistsCache.TryGetValue(userType, out var exists))
+            {
+                return exists;
+            }
+
+            // Use lock to prevent multiple concurrent checks for the same role
+            await _roleCacheLock.WaitAsync();
+            try
+            {
+                // Double-check after acquiring lock
+                if (_roleExistsCache.TryGetValue(userType, out exists))
+                {
+                    return exists;
+                }
+
+                var roleName = userType.ToString();
+                exists = await _roleManager.RoleExistsAsync(roleName);
+
+                // Cache the result
+                _roleExistsCache.TryAdd(userType, exists);
+
+                _logger.LogDebug("Role existence cached", new
+                {
+                    Role = roleName,
+                    Exists = exists
+                });
+
+                return exists;
+            }
+            finally
+            {
+                _roleCacheLock.Release();
+            }
+        }
+
+        private async Task<(bool Result, ApplicationUser? User)> CreateNewUserOld(
+    RegisterRequest request,
+    string normalizedEmail,
+    string sanitizedPhone,
+    string correlationId)
+        {
             var user = new ApplicationUser
             {
                 UserName = normalizedEmail,
@@ -883,84 +1162,6 @@ namespace Skills.Services
             return (true, user);
         }
 
-
-        private async Task<AuthResult> CreateNewUserOld(RegisterRequest request, string normalizedEmail, string sanitizedPhone, string correlationId)
-        {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-
-            try
-            {
-                var user = new ApplicationUser
-                {
-                    UserName = normalizedEmail,
-                    Email = normalizedEmail,
-                    FirstName = request.FirstName,
-                    LastName = request.LastName,
-                    PhoneNumber = sanitizedPhone,
-                    UserType = request.UserType,
-                    Status = UserStatus.Pending,
-                    EmailVerified = false,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                var createResult = await _userManager.CreateAsync(user, request.Password);
-                if (!createResult.Succeeded)
-                {
-                    var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
-                    _logger.LogWarning("User creation failed", new { CorrelationId = correlationId, Email = normalizedEmail, Errors = errors });
-                    return AuthResult.Failure(errors);
-                }
-
-                // Assign role
-                var roleName = request.UserType.ToString();
-                if (!await _roleManager.RoleExistsAsync(roleName))
-                {
-                    _logger.LogError("Role does not exist", null, new { CorrelationId = correlationId, Role = roleName });
-                    return AuthResult.Failure("Invalid role configuration. Please contact support.");
-                }
-
-                var roleResult = await _userManager.AddToRoleAsync(user, roleName);
-                if (!roleResult.Succeeded)
-                {
-                    _logger.LogError("Role assignment failed", null, new { CorrelationId = correlationId, UserId = user.Id, Role = roleName });
-                    return AuthResult.Failure("Failed to assign user role");
-                }
-
-                // Handle user type-specific data
-                await CreateUserTypeSpecificData(user, request);
-
-                await _context.SaveChangesAsync();
-
-                // Generate and send verification code
-                var verificationResult = await GenerateAndSendVerificationCodeAsync(user.Id, user.Email, correlationId);
-                if (!verificationResult.Succeeded)
-                {
-                    await transaction.CommitAsync();
-                    _logger.LogWarning("Account created but email sending failed", new { CorrelationId = correlationId, UserId = user.Id });
-                    return AuthResult.Failure("Account created but failed to send verification email. Please request a new code.");
-                }
-
-                await transaction.CommitAsync();
-
-                await LogAuditAsync(user.Id, "Registration", null, null, true,
-                    $"User registered as {request.UserType} - pending email verification", correlationId);
-
-                _logger.LogInfo("User registration successful", new { CorrelationId = correlationId, UserId = user.Id });
-
-                return AuthResult.PendingVerification(
-                    userId: user.Id,
-                    email: user.Email,
-                    message: "Registration successful. Please check your email for the verification code."
-                );
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError("Transaction failed during user creation", ex, new { CorrelationId = correlationId, Email = normalizedEmail });
-                throw;
-            }
-        }
 
         private async Task<AuthResult?> CheckAndHandleLockout(ApplicationUser user, string? ipAddress, string correlationId)
         {
