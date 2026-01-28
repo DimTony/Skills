@@ -92,19 +92,179 @@ namespace Skills.Services
                         return AuthResult.Failure("Invalid Account");
                     }
 
-                    // User exists but email not verified - resend verification code
-                    var resendResult = await ResendVerificationCodeAsync(existingUser.Id, existingUser.Email);
-                    if (!resendResult.Succeeded)
-                    {
-                        return AuthResult.Failure("Failed to resend verification code. Please try again.");
-                    }
+                    // User exists but email not verified - update their details and resend verification
+                    await using var transaction = await _context.Database.BeginTransactionAsync();
 
-                    // Return success with pending verification status
-                    return AuthResult.PendingVerification(
-                        userId: existingUser.Id,
-                        email: existingUser.Email,
-                        message: "A verification code has been sent to your email."
-                    );
+                    try
+                    {
+                        // Update basic user information
+                        existingUser.FirstName = request.FirstName;
+                        existingUser.LastName = request.LastName;
+                        existingUser.PhoneNumber = request.PhoneNumber;
+                        existingUser.UserType = request.UserType;
+                        existingUser.UpdatedAt = DateTime.UtcNow;
+
+                        // Update password
+                        var removePasswordResult = await _userManager.RemovePasswordAsync(existingUser);
+                        if (removePasswordResult.Succeeded)
+                        {
+                            var addPasswordResult = await _userManager.AddPasswordAsync(existingUser, request.Password);
+                            if (!addPasswordResult.Succeeded)
+                            {
+                                return AuthResult.Failure("Failed to update password");
+                            }
+                        }
+
+                        // Update role if UserType changed
+                        var currentRoles = await _userManager.GetRolesAsync(existingUser);
+                        var newRoleName = request.UserType.ToString();
+
+                        if (!await _roleManager.RoleExistsAsync(newRoleName))
+                        {
+                            return AuthResult.Failure("Invalid role");
+                        }
+
+                        if (!currentRoles.Contains(newRoleName))
+                        {
+                            if (currentRoles.Any())
+                            {
+                                await _userManager.RemoveFromRolesAsync(existingUser, currentRoles);
+                            }
+                            var roleResult = await _userManager.AddToRoleAsync(existingUser, newRoleName);
+                            if (!roleResult.Succeeded)
+                            {
+                                return AuthResult.Failure("Failed to assign user role");
+                            }
+                        }
+
+                        // Update type-specific data
+                        if (request.UserType == UserType.User)
+                        {
+                            // Remove old artisan profile and services if switching from Artisan to User
+                            var oldArtisanProfile = await _context.ArtisanProfiles
+                                .FirstOrDefaultAsync(ap => ap.UserId == existingUser.Id);
+
+                            if (oldArtisanProfile != null)
+                            {
+                                var oldServices = await _context.Services
+                                    .Where(s => s.ArtisanId == oldArtisanProfile.Id)
+                                    .ToListAsync();
+                                _context.Services.RemoveRange(oldServices);
+                                _context.ArtisanProfiles.Remove(oldArtisanProfile);
+                            }
+
+                            // Remove old preferences
+                            var oldPreferences = await _context.ServicePreferences
+                                .Where(sp => sp.UserId == existingUser.Id)
+                                .ToListAsync();
+                            _context.ServicePreferences.RemoveRange(oldPreferences);
+
+                            // Add new preferences
+                            if (request.ServicePreferences?.Any() == true)
+                            {
+                                var newPreferences = request.ServicePreferences.Select(sp => new ServicePreference
+                                {
+                                    UserId = existingUser.Id,
+                                    ServiceCategory = sp,
+                                    CreatedAt = DateTime.UtcNow
+                                }).ToList();
+                                _context.ServicePreferences.AddRange(newPreferences);
+                            }
+                        }
+                        else if (request.UserType == UserType.Artisan)
+                        {
+                            // Remove old service preferences if switching from User to Artisan
+                            var oldPreferences = await _context.ServicePreferences
+                                .Where(sp => sp.UserId == existingUser.Id)
+                                .ToListAsync();
+                            _context.ServicePreferences.RemoveRange(oldPreferences);
+
+                            // Update or create artisan profile
+                            var existingProfile = await _context.ArtisanProfiles
+                                .FirstOrDefaultAsync(ap => ap.UserId == existingUser.Id);
+
+                            if (existingProfile != null)
+                            {
+                                existingProfile.BusinessName = request.BusinessName;
+                                existingProfile.UpdatedAt = DateTime.UtcNow;
+
+                                // Remove old services
+                                var oldServices = await _context.Services
+                                    .Where(s => s.ArtisanId == existingProfile.Id)
+                                    .ToListAsync();
+                                _context.Services.RemoveRange(oldServices);
+                            }
+                            else
+                            {
+                                existingProfile = new ArtisanProfile
+                                {
+                                    UserId = existingUser.Id,
+                                    BusinessName = request.BusinessName,
+                                    CreatedAt = DateTime.UtcNow,
+                                    UpdatedAt = DateTime.UtcNow
+                                };
+                                _context.ArtisanProfiles.Add(existingProfile);
+                                await _context.SaveChangesAsync(); // Save to get the profile ID
+                            }
+
+                            // Add new service
+                            if (request.Service != null)
+                            {
+                                var service = new Service
+                                {
+                                    ArtisanId = existingProfile.Id,
+                                    Name = request.Service.Name,
+                                    Category = request.Service.Category,
+                                    PricingModel = request.Service.PricingModel,
+                                    MinPrice = request.Service.MinPrice,
+                                    MaxPrice = request.Service.MaxPrice,
+                                    Availability = request.Service.Availability,
+                                    Notes = request.Service.Notes,
+                                    CreatedAt = DateTime.UtcNow,
+                                    UpdatedAt = DateTime.UtcNow
+                                };
+                                _context.Services.Add(service);
+                            }
+                        }
+
+                        // Save all changes
+                        await _context.SaveChangesAsync();
+
+                        // Resend verification code
+                        var resendResult = await ResendVerificationCodeAsync(existingUser.Id, existingUser.Email);
+                        if (!resendResult.Succeeded)
+                        {
+                            await transaction.RollbackAsync();
+                            return AuthResult.Failure("Failed to send verification code. Please try again.");
+                        }
+
+                        // Commit transaction
+                        await transaction.CommitAsync();
+
+                        // Log audit
+                        await LogAuditAsync(
+                            existingUser.Id,
+                            "Registration Update",
+                            null,
+                            null,
+                            true,
+                            $"User updated registration details as {request.UserType} - verification code resent"
+                        );
+
+                        // Return success with pending verification status
+                        return AuthResult.PendingVerification(
+                            userId: existingUser.Id,
+                            email: existingUser.Email,
+                            message: "Your registration details have been updated. A verification code has been sent to your email."
+                        );
+                    }
+                    catch (Exception transactionEx)
+                    {
+                        await transaction.RollbackAsync();
+                        _logger.LogError("Transaction failed during registration update for {Email}", transactionEx,
+                            new { Email = normalizedEmail });
+                        throw;
+                    }
                 }
 
                 // Check phone number uniqueness
@@ -114,8 +274,8 @@ namespace Skills.Services
                     return AuthResult.Failure("User with this phone number already exists");
                 }
 
-                // Start database transaction
-                await using var transaction = await _context.Database.BeginTransactionAsync();
+                
+                await using var newUserTransaction = await _context.Database.BeginTransactionAsync();
 
                 try
                 {
@@ -128,7 +288,7 @@ namespace Skills.Services
                         LastName = request.LastName,
                         PhoneNumber = request.PhoneNumber,
                         UserType = request.UserType,
-                        Status = UserStatus.Pending, // Changed from New
+                        Status = UserStatus.Pending,
                         EmailVerified = false,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
@@ -186,7 +346,6 @@ namespace Skills.Services
                         {
                             var service = new Service
                             {
-                                //ArtisanProfile = artisanProfile,
                                 ArtisanId = artisanProfile.Id,
                                 Name = request.Service.Name,
                                 Category = request.Service.Category,
@@ -210,13 +369,12 @@ namespace Skills.Services
                     if (!verificationResult.Succeeded)
                     {
                         // Still commit the transaction but log the email failure
-                        await transaction.CommitAsync();
-                        // _logger.LogError("Failed to send verification email to {Email}", user.Email);
+                        await newUserTransaction.CommitAsync();
                         return AuthResult.Failure("Account created but failed to send verification email. Please request a new code.");
                     }
 
                     // Commit transaction
-                    await transaction.CommitAsync();
+                    await newUserTransaction.CommitAsync();
 
                     // Log audit
                     await LogAuditAsync(
@@ -237,16 +395,14 @@ namespace Skills.Services
                 }
                 catch (Exception transactionEx)
                 {
-                    await transaction.RollbackAsync();
+                    await newUserTransaction.RollbackAsync();
                     _logger.LogError("Transaction failed during user registration for {Email}", transactionEx,
-             new { Email = normalizedEmail });
-                  
+                        new { Email = normalizedEmail });
                     throw;
                 }
             }
             catch (Exception ex)
             {
-                // _logger.LogError(ex, "Registration failed for email: {Email}", request.Email);
                 return AuthResult.Failure($"Registration failed: {ex.Message}");
             }
         }
@@ -373,7 +529,7 @@ namespace Skills.Services
             {
                 _logger.LogError("Failed to resend verification code", ex,
           new { Email = normalizedEmail });
-                return AuthResult.Failure("Failed to resend verification code");
+                return AuthResult.Failure("Failed to send verification code");
             }
         }
 
@@ -388,7 +544,7 @@ namespace Skills.Services
                 if (!user.IsActive)
                     return AuthResult.Failure("Account is inactive");
 
-                if (user.Status == UserStatus.Locked || user.Status == UserStatus.Suspended)
+                if (user.Status != UserStatus.Active)
                     return AuthResult.Failure($"Account is {user.Status.ToString().ToLower()}");
 
                 var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
@@ -798,7 +954,7 @@ namespace Skills.Services
             {
                 _logger.LogError("Failed to resend verification code for user {UserId}", ex,
         new { User = userId });
-                return OperationResult.Failure("Failed to resend verification code");
+                return OperationResult.Failure("Failed to send verification code");
             }
         }
 

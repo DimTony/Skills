@@ -228,5 +228,122 @@ namespace Skills.Controllers
         }
     }
 
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AuthenticationController : ControllerBase
+    {
+        private readonly IAuthenticationService _authenticationService;
+        private readonly ILogger<AuthController> _logger;
+
+        public AuthenticationController(IAuthenticationService authenticationService, ILogger<AuthController> logger)
+        {
+            _authenticationService = authenticationService;
+            _logger = logger;
+        }
+
+         [HttpPost("Register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            // Get IP and device info from request
+            request.IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            //request.UserAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+            request.DeviceInfo = HttpContext.Request.Headers["User-Agent"].ToString();
+
+            var result = await _authenticationService.RegisterAsync(request);
+
+            if (result.Succeeded)
+            {
+                return Ok(result);
+            }
+
+            return Unauthorized(result);
+
+        }
+
+
+        [HttpPost("Login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            // Get IP and device info from request
+            request.IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            request.UserAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+            request.DeviceInfo = HttpContext.Request.Headers["User-Agent"].ToString();
+
+            var result = await _authenticationService.LoginAsync(request);
+
+            if (result.Succeeded)
+            {
+                return Ok(result);
+            }
+
+            return Unauthorized(result);
+
+        }
+
+        [HttpPost("ResendVerification")]
+        public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendCodeRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            //var ipAddress = GetIpAddress();
+            request.IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            request.DeviceInfo = HttpContext.Request.Headers["User-Agent"].ToString();
+
+            var result = await _authenticationService.ResendVerificationCodeEndpointAsync(request);
+
+            if (result.Succeeded)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        [HttpPost("VerifyEmail")]
+        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            //var ipAddress = GetIpAddress();
+            request.IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            request.DeviceInfo = HttpContext.Request.Headers["User-Agent"].ToString();
+
+            var result = await _authenticationService.EmailVerifyAsync(request);
+
+            if (result.Succeeded)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
+        }
+
+        [HttpPost("RefreshToken")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        {
+            if (string.IsNullOrEmpty(request.RefreshToken))
+                return BadRequest(new { error = "Refresh token is required" });
+
+            var result = await _authenticationService.RefreshTokenAsync(request.RefreshToken);
+
+            if (result.Succeeded)
+            {
+                return Ok(result);
+            }
+
+            return Unauthorized(result);
+        }
+
+    }
 
 }
