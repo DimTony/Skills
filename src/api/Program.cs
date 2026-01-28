@@ -32,9 +32,16 @@ NpgsqlConnection.GlobalTypeMapper.UseNetTopologySuite();
 
 builder.Host.UseSerilog();
 
-// Add PostgreSQL DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.UseNetTopologySuite()));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        o => {
+            o.UseNetTopologySuite();
+            o.EnableRetryOnFailure(3);
+            o.CommandTimeout(30);
+        })
+    .EnableSensitiveDataLogging(false)
+    .EnableDetailedErrors(false));
 
 // Add Identity
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
