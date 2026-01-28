@@ -113,108 +113,111 @@ namespace Skills.Services
                 var normalizedEmail = NormalizeEmail(request.Email);
                 var sanitizedPhone = SanitizePhoneNumber(request.PhoneNumber);
 
-                await using var transaction = await _context.Database.BeginTransactionAsync();
+                // ===== USE EXECUTION STRATEGY INSTEAD OF MANUAL TRANSACTION =====
+                var strategy = _context.Database.CreateExecutionStrategy();
 
-                try
+                return await strategy.ExecuteAsync(async () =>
                 {
-                    // Check existing user
-                    var existingUser = await _context.Users
-                        .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+                    await using var transaction = await _context.Database.BeginTransactionAsync();
 
-                    if (existingUser != null)
+                    try
                     {
-                        await transaction.RollbackAsync();
-                        return await HandleExistingUserRegistration(existingUser, request, correlationId);
-                    }
+                        // Check existing user
+                        var existingUser = await _context.Users
+                            .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
 
-                    // Check phone uniqueness
-                    var phoneExists = await _context.Users
-                        .AnyAsync(u => u.PhoneNumber == sanitizedPhone);
-
-                    if (phoneExists)
-                    {
-                        await transaction.RollbackAsync();
-                        return AuthResult.Failure("User with this phone number already exists");
-                    }
-
-                    // Create user and related data
-                    var (result, user) = await CreateNewUser(
-                        request,
-                        normalizedEmail,
-                        sanitizedPhone,
-                        correlationId);
-
-                    if (!result || user == null || string.IsNullOrWhiteSpace(user.Email))
-                    {
-                        await transaction.RollbackAsync();
-                        return AuthResult.Failure("Error occurred creating user");
-                    }
-
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    _logger.LogInfo("User registration transaction completed", new
-                    {
-                        CorrelationId = correlationId,
-                        UserId = user.Id,
-                        DurationMs = overallTimer.ElapsedMilliseconds
-                    });
-
-                    // ===== NON-BLOCKING EMAIL SENDING =====
-                    // Fire and forget - don't wait for email
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                        if (existingUser != null)
                         {
-                            await GenerateAndSendVerificationCodeAsync(user.Id, user.Email, correlationId);
-                            _logger.LogInfo("Verification email sent successfully", new
-                            {
-                                CorrelationId = correlationId,
-                                UserId = user.Id
-                            });
+                            await transaction.RollbackAsync();
+                            return await HandleExistingUserRegistration(existingUser, request, correlationId);
                         }
-                        catch (Exception emailEx)
+
+                        // Check phone uniqueness
+                        var phoneExists = await _context.Users
+                            .AnyAsync(u => u.PhoneNumber == sanitizedPhone);
+
+                        if (phoneExists)
                         {
-                            _logger.LogError("Background verification email failed", emailEx, new
-                            {
-                                CorrelationId = correlationId,
-                                UserId = user.Id
-                            });
-                            // Don't throw - this is fire-and-forget
+                            await transaction.RollbackAsync();
+                            return AuthResult.Failure("User with this phone number already exists");
                         }
-                    });
 
-                    // Log audit (non-blocking too if you want even faster response)
-                    await LogAuditAsync(
-                        user.Id,
-                        "Registration",
-                        null,
-                        null,
-                        true,
-                        $"User registered as {request.UserType} - pending verification",
-                        correlationId);
+                        // Create user and related data
+                        var (result, user) = await CreateNewUser(
+                            request,
+                            normalizedEmail,
+                            sanitizedPhone,
+                            correlationId);
 
-                    _logger.LogInfo("User registration completed", new
+                        if (!result || user == null || string.IsNullOrWhiteSpace(user.Email))
+                        {
+                            await transaction.RollbackAsync();
+                            return AuthResult.Failure("Error occurred creating user");
+                        }
+
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        _logger.LogInfo("User registration transaction completed", new
+                        {
+                            CorrelationId = correlationId,
+                            UserId = user.Id,
+                            DurationMs = overallTimer.ElapsedMilliseconds
+                        });
+
+                        // Fire and forget email sending
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await GenerateAndSendVerificationCodeAsync(user.Id, user.Email, correlationId);
+                                _logger.LogInfo("Verification email sent successfully", new
+                                {
+                                    CorrelationId = correlationId,
+                                    UserId = user.Id
+                                });
+                            }
+                            catch (Exception emailEx)
+                            {
+                                _logger.LogError("Background verification email failed", emailEx, new
+                                {
+                                    CorrelationId = correlationId,
+                                    UserId = user.Id
+                                });
+                            }
+                        });
+
+                        // Log audit
+                        await LogAuditAsync(
+                            user.Id,
+                            "Registration",
+                            null,
+                            null,
+                            true,
+                            $"User registered as {request.UserType} - pending verification",
+                            correlationId);
+
+                        _logger.LogInfo("User registration completed", new
+                        {
+                            CorrelationId = correlationId,
+                            UserId = user.Id,
+                            TotalDurationMs = overallTimer.ElapsedMilliseconds
+                        });
+
+                        return AuthResult.PendingVerification(
+                            user.Id,
+                            user.Email,
+                            "Registration successful. Please check your email for the verification code."
+                        );
+                    }
+                    catch (Exception transactionEx)
                     {
-                        CorrelationId = correlationId,
-                        UserId = user.Id,
-                        TotalDurationMs = overallTimer.ElapsedMilliseconds
-                    });
-
-                    // Return immediately - don't wait for email
-                    return AuthResult.PendingVerification(
-                        user.Id,
-                        user.Email,
-                        "Registration successful. Please check your email for the verification code."
-                    );
-                }
-                catch (Exception transactionEx)
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError("Transaction failed during registration", transactionEx,
-                        new { CorrelationId = correlationId, Email = normalizedEmail });
-                    throw;
-                }
+                        await transaction.RollbackAsync();
+                        _logger.LogError("Transaction failed during registration", transactionEx,
+                            new { CorrelationId = correlationId, Email = normalizedEmail });
+                        throw;
+                    }
+                });
             }
             catch (Exception ex)
             {
