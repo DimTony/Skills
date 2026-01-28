@@ -5,7 +5,7 @@
 namespace Skills.Migrations
 {
     /// <inheritdoc />
-    public partial class AddEmailAnd : Migration
+    public partial class Init : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
