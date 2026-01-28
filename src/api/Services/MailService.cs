@@ -49,17 +49,15 @@ namespace Skills.Services
             await SendEmailViaGmailAsync(email, subject, body);
         }
 
-
-
         private async Task SendEmailViaGmailAsync(string to, string subject, string body)
         {
             try
             {
                 var smtpServer = _configuration["Gmail:SmtpServer"] ?? "smtp.gmail.com";
-                var smtpPort = int.Parse(_configuration["Gmail:Port"] ?? "587");
+                var smtpPort = int.Parse(_configuration["Gmail:Port"] ?? "465"); // Changed default
 
                 var fromEmail = _configuration["Gmail:FromEmail"];
-                var fromName = _configuration["Gmail:FromName"] ?? "Habitera";
+                var fromName = _configuration["Gmail:FromName"] ?? "Skills"; // Changed from Habitera
                 var username = _configuration["Gmail:Username"];
                 var password = _configuration["Gmail:Password"];
 
@@ -69,7 +67,7 @@ namespace Skills.Services
                 {
                     _logger.LogWarning(
                         "Gmail email configuration is missing. Required: FromEmail, Username, Password");
-                    return;
+                    throw new InvalidOperationException("Gmail configuration is incomplete");
                 }
 
                 var message = new MimeMessage();
@@ -84,10 +82,11 @@ namespace Skills.Services
 
                 using var client = new SmtpClient();
 
+                // Port 465 requires SslOnConnect instead of StartTls
                 await client.ConnectAsync(
                     smtpServer,
                     smtpPort,
-                    SecureSocketOptions.StartTls);
+                    SecureSocketOptions.SslOnConnect);
 
                 await client.AuthenticateAsync(username, password);
                 await client.SendAsync(message);
@@ -97,23 +96,23 @@ namespace Skills.Services
             }
             catch (MailKit.Security.AuthenticationException authEx)
             {
-                _logger.LogError("Failed to generate and send verification code", authEx, "Gmail authentication failed");
-                throw new Exception("Gmail authentication failed. Check App Password.");
+                _logger.LogError("Failed to generate and send verification code", authEx,
+                    "Gmail authentication failed");
+                throw new Exception("Gmail authentication failed. Check App Password.", authEx);
             }
             catch (SmtpCommandException smtpEx)
             {
                 _logger.LogError("Failed to generate and send verification code",
                     smtpEx,
                     $"SMTP command error sending email via Gmail to {to}: {smtpEx.StatusCode}");
-
-                throw new Exception("SMTP command failed while sending email.");
+                throw new Exception("SMTP command failed while sending email.", smtpEx);
             }
             catch (Exception ex)
             {
-                _logger.LogError("Failed to generate and send verification code", ex, $"Unexpected error sending email via Gmail to {to}");
+                _logger.LogError("Failed to generate and send verification code", ex,
+                    $"Unexpected error sending email via Gmail to {to}");
                 throw;
             }
         }
-
     }
 }
