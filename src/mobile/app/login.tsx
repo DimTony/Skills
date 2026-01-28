@@ -255,7 +255,7 @@ export default function Login() {
           password,
           firstName,
           lastName,
-          userType: 'Artisan',
+          userType: "Artisan",
           phoneNumber,
           businessName,
           service: {
@@ -346,600 +346,629 @@ export default function Login() {
   /* ---------------------------
      Render
   ---------------------------- */
-  return showOTPView ? (
-    <>
-    <View style={styles.header}>
-      <Text style={styles.welcomeText}>Verify your account ✉️</Text>
-      <Text style={styles.title}>
-        Enter the 6-digit code sent to {registrationEmail}
-      </Text>
-    </View>
-
-    <View style={styles.otpContainer}>
-      {otpCode.map((digit, index) => (
-        <TextInput
-          key={index}
-          style={styles.otpInput}
-          value={digit}
-          onChangeText={(value) => handleOTPChange(value, index)}
-          keyboardType="number-pad"
-          maxLength={1}
-          textAlign="center"
-        />
-      ))}
-    </View>
-
-    <TouchableOpacity style={styles.resendButton}>
-      <Text style={styles.resendText}>
-        Didn't receive code? <Text style={styles.linkText}>Resend</Text>
-      </Text>
-    </TouchableOpacity>
-
-    <TouchableOpacity
-      style={styles.button}
-      onPress={handleOTPVerification}
-      disabled={isVerifyingOTP || loginMutation.isPending}
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <Text style={styles.buttonText}>
-        {isVerifyingOTP || loginMutation.isPending ? "Verifying..." : "Verify & Continue"}
-      </Text>
-    </TouchableOpacity>
-
-    <TouchableOpacity
-      onPress={() => {
-        setShowOTPView(false);
-        setOtpCode(['', '', '', '', '', '']);
-      }}
-      style={styles.backButton}
-    >
-      <Text style={styles.backButtonText}>← Back to registration</Text>
-    </TouchableOpacity>
-    </>
-  ) : (
-    <>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        {/* Fixed Header - Toggle Sign In/Sign Up */}
-        <View style={styles.fixedHeader}>
-          <TouchableOpacity
-            style={styles.toggleButton}
-            onPress={() => setIsRegister(!isRegister)}
-          >
-            <Text style={styles.toggleText}>
-              {isRegister ? "Already have an account? " : "New here? "}
-              <Text style={styles.toggleLinkText}>
-                {isRegister ? "Sign In" : "Sign up"}
+      {showOTPView ? (
+        <>
+          {/* <View style={styles.fixedHeader}>
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => setIsRegister(!isRegister)}
+            >
+              <Text style={styles.toggleText}>
+                {isRegister ? "Already have an account? " : "New here? "}
+                <Text style={styles.toggleLinkText}>
+                  {isRegister ? "Sign In" : "Sign up"}
+                </Text>
               </Text>
+            </TouchableOpacity>
+          </View> */}
+
+          <View style={styles.fixedOtpHeader}>
+            <Text style={styles.welcomeText}>Verify your account ✉️</Text>
+            <Text style={styles.title}>
+              Enter the 6-digit code sent to {registrationEmail}
+            </Text>
+          </View>
+
+          <View style={styles.otpContainer}>
+            {otpCode.map((digit, index) => (
+              <TextInput
+                key={index}
+                style={styles.otpInput}
+                value={digit}
+                onChangeText={(value) => handleOTPChange(value, index)}
+                keyboardType="number-pad"
+                maxLength={1}
+                textAlign="center"
+              />
+            ))}
+          </View>
+
+          <TouchableOpacity style={styles.resendButton}>
+            <Text style={styles.resendText}>
+              Didn't receive code? <Text style={styles.linkText}>Resend</Text>
             </Text>
           </TouchableOpacity>
-        </View>
 
-        {/* Scrollable Content */}
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Header */}
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleOTPVerification}
+            disabled={isVerifyingOTP || loginMutation.isPending}
+          >
+            <Text style={styles.buttonText}>
+              {isVerifyingOTP || loginMutation.isPending
+                ? "Verifying..."
+                : "Verify & Continue"}
+            </Text>
+          </TouchableOpacity>
 
-          <View style={styles.headerContainer}>
-            <View style={styles.header}>
-              <Text style={styles.welcomeText}>Welcome back 👋</Text>
-              <Text style={styles.title}>
-                {isRegister
-                  ? `Register as ${userTypeLabel === "Artisan" ? "Artisan" : "User"}.`
-                  : "Log in to continue exploring."}
+          <TouchableOpacity
+            onPress={() => {
+              setShowOTPView(false);
+              setOtpCode(["", "", "", "", "", ""]);
+            }}
+            style={styles.backButton}
+          >
+            <Text style={styles.backButtonText}>← Back to registration</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          {/* <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      > */}
+          {/* Fixed Header - Toggle Sign In/Sign Up */}
+          <View style={styles.fixedHeader}>
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => setIsRegister(!isRegister)}
+            >
+              <Text style={styles.toggleText}>
+                {isRegister ? "Already have an account? " : "New here? "}
+                <Text style={styles.toggleLinkText}>
+                  {isRegister ? "Sign In" : "Sign up"}
+                </Text>
               </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Scrollable Content */}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Header */}
+
+            <View style={styles.headerContainer}>
+              <View style={styles.header}>
+                <Text style={styles.welcomeText}>Welcome back 👋</Text>
+                <Text style={styles.title}>
+                  {isRegister
+                    ? `Register as ${userTypeLabel === "Artisan" ? "Artisan" : "User"}.`
+                    : "Log in to continue exploring."}
+                </Text>
+              </View>
+
+              {isRegister &&
+                ((currentUserType === "User" && userRegisterStep === 1) ||
+                  (currentUserType === "Artisan" &&
+                    agentRegisterStep === 1)) && (
+                  <StepIndicator currentStep={1} />
+                )}
             </View>
-
-            {isRegister &&
-              ((currentUserType === "User" && userRegisterStep === 1) ||
-                (currentUserType === "Artisan" && agentRegisterStep === 1)) && (
-                <StepIndicator currentStep={1} />
-              )}
-          </View>
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="name@email.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-
-          {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Enter password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-              >
-                <Text style={styles.eyeText}>👁</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Confirm Password (Registration Only) */}
-          {isRegister && (
+            {/* Email Input */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Confirm Password</Text>
+              <Text style={styles.label}>Email address</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="name@email.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            {/* Password Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.passwordInput}
-                  placeholder="Re-enter password"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry={!showConfirmPassword}
+                  placeholder="Enter password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
                 />
                 <TouchableOpacity
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onPress={() => setShowPassword(!showPassword)}
                   style={styles.eyeIcon}
                 >
                   <Text style={styles.eyeText}>👁</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          )}
 
-          {/* User Registration - Step 1 */}
-          {isRegister &&
-            currentUserType === "User" &&
-            userRegisterStep === 1 && (
-              <>
-                <View style={styles.photoSection}>
-                  <View style={styles.photoContainer}>
-                    <View style={styles.avatarLarge}>
-                      <Text style={styles.avatarText}>📷</Text>
-                    </View>
-                    <TouchableOpacity style={styles.addPhotoButton}>
-                      <Text style={styles.addPhotoIcon}>⊕</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.photoLabel}>Add profile photo</Text>
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Full Name</Text>
+            {/* Confirm Password (Registration Only) */}
+            {isRegister && (
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Confirm Password</Text>
+                <View style={styles.passwordContainer}>
                   <TextInput
-                    style={styles.input}
-                    placeholder="Enter your full name"
-                    value={fullName}
-                    onChangeText={setFullName}
+                    style={styles.passwordInput}
+                    placeholder="Re-enter password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
                   />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={styles.eyeIcon}
+                  >
+                    <Text style={styles.eyeText}>👁</Text>
+                  </TouchableOpacity>
                 </View>
-
-                <View style={styles.rowContainer}>
-                  <View style={[styles.inputContainer, styles.halfWidth]}>
-                    <Text style={styles.label}>First name</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Jude"
-                      value={firstName}
-                      onChangeText={setFirstName}
-                    />
-                  </View>
-                  <View style={[styles.inputContainer, styles.halfWidth]}>
-                    <Text style={styles.label}>Last name</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Mark"
-                      value={lastName}
-                      onChangeText={setLastName}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Phone number</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="+234 768 585 9595"
-                    value={phoneNumber}
-                    onChangeText={setPhoneNumber}
-                    keyboardType="phone-pad"
-                  />
-                </View>
-              </>
+              </View>
             )}
 
-          {/* User Registration - Step 2: Service Preferences */}
-          {isRegister &&
-            currentUserType === "User" &&
-            userRegisterStep === 2 && (
-              <>
-                <View style={styles.stepIndicator}>
-                  <TouchableOpacity
-                    onPress={() => setUserRegisterStep(1)}
-                    style={styles.backButton}
-                  >
-                    <Text style={styles.backButtonText}>← Back</Text>
-                  </TouchableOpacity>
-
-                  {/* <Text style={styles.stepText}>
-                Step 2 of 2 - Select Your Service Preferences
-              </Text> */}
-                  <View style={styles.stepTitleContainer}>
-                    <View style={styles.stepTitle}>
-                      <Text style={styles.stepSubtext}>
-                        Tell us what you're looking for.
-                      </Text>
-                      <Text style={styles.stepText}>
-                        Help us tailor your feeds!
-                      </Text>
-                    </View>
-
-                    <StepIndicator currentStep={2} />
-                  </View>
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>
-                    What services are you interested in? (Select all that apply)
-                  </Text>
-                  <View style={styles.serviceGrid}>
-                    {SERVICE_CATEGORIES.map((service) => (
-                      <TouchableOpacity
-                        key={service}
-                        style={[
-                          styles.serviceChip,
-                          selectedServices.includes(service) &&
-                            styles.serviceChipSelected,
-                        ]}
-                        onPress={() => toggleService(service)}
-                      >
-                        <Text
-                          style={[
-                            styles.serviceChipText,
-                            selectedServices.includes(service) &&
-                              styles.serviceChipTextSelected,
-                          ]}
-                        >
-                          {service}
-                        </Text>
-                        {selectedServices.includes(service) && (
-                          <Text style={styles.checkmark}>✓</Text>
-                        )}
+            {/* User Registration - Step 1 */}
+            {isRegister &&
+              currentUserType === "User" &&
+              userRegisterStep === 1 && (
+                <>
+                  <View style={styles.photoSection}>
+                    <View style={styles.photoContainer}>
+                      <View style={styles.avatarLarge}>
+                        <Text style={styles.avatarText}>📷</Text>
+                      </View>
+                      <TouchableOpacity style={styles.addPhotoButton}>
+                        <Text style={styles.addPhotoIcon}>⊕</Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              </>
-            )}
-
-          {/* Agent Registration - Step 1 */}
-          {isRegister &&
-            currentUserType === "Artisan" &&
-            agentRegisterStep === 1 && (
-              <>
-                <View style={styles.photoSection}>
-                  <View style={styles.photoContainer}>
-                    <View style={styles.avatarLarge}>
-                      <Text style={styles.avatarText}>📷</Text>
                     </View>
-                    <TouchableOpacity style={styles.addPhotoButton}>
-                      <Text style={styles.addPhotoIcon}>⊕</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.photoLabel}>Add profile photo</Text>
                   </View>
-                  <Text style={styles.photoLabel}>Add profile photo</Text>
-                </View>
 
-                <View style={styles.rowContainer}>
-                  <View style={[styles.inputContainer, styles.halfWidth]}>
-                    <Text style={styles.label}>First name</Text>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Full Name</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="Jude"
-                      value={firstName}
-                      onChangeText={setFirstName}
+                      placeholder="Enter your full name"
+                      value={fullName}
+                      onChangeText={setFullName}
                     />
                   </View>
-                  <View style={[styles.inputContainer, styles.halfWidth]}>
-                    <Text style={styles.label}>Last name</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Mark"
-                      value={lastName}
-                      onChangeText={setLastName}
-                    />
-                  </View>
-                </View>
 
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Phone number</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="+234 768 585 9595"
-                    value={phoneNumber}
-                    onChangeText={setPhoneNumber}
-                    keyboardType="phone-pad"
-                  />
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Business Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Bontel Limited"
-                    value={businessName}
-                    onChangeText={setBusinessName}
-                  />
-                </View>
-              </>
-            )}
-
-          {/* Agent Registration - Step 2 */}
-          {isRegister &&
-            currentUserType === "Artisan" &&
-            agentRegisterStep === 2 && (
-              <>
-                <View style={styles.stepIndicator}>
-                  <TouchableOpacity
-                    onPress={() => setAgentRegisterStep(1)}
-                    style={styles.backButton}
-                  >
-                    <Text style={styles.backButtonText}>← Back</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.stepTitleContainer}>
-                    <View style={styles.stepTitle}>
-                      <Text style={styles.stepSubtext}>
-                        Let's help clients find you.
-                      </Text>
-                      <Text style={styles.stepText}>
-                        Tell us about your first service!
-                      </Text>
-                    </View>
-
-                    <StepIndicator currentStep={2} />
-                  </View>
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Service Name *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., Home Plumbing Repair"
-                    value={serviceName}
-                    onChangeText={setServiceName}
-                  />
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Service Category *</Text>
-                  <TouchableOpacity
-                    style={styles.input}
-                    onPress={() => setShowCategoryPicker(!showCategoryPicker)}
-                  >
-                    <Text
-                      style={
-                        serviceCategory
-                          ? styles.selectedText
-                          : styles.placeholderText
-                      }
-                    >
-                      {serviceCategory || "Select a category"}
-                    </Text>
-                  </TouchableOpacity>
-                  {showCategoryPicker && (
-                    <View style={styles.pickerContainer}>
-                      {SERVICE_CATEGORIES.map((category) => (
-                        <TouchableOpacity
-                          key={category}
-                          style={styles.pickerItem}
-                          onPress={() => {
-                            setServiceCategory(category);
-                            setShowCategoryPicker(false);
-                          }}
-                        >
-                          <Text style={styles.pickerItemText}>{category}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Pricing Model *</Text>
-                  <TouchableOpacity
-                    style={styles.input}
-                    onPress={() => setShowPricingPicker(!showPricingPicker)}
-                  >
-                    <Text
-                      style={
-                        pricingModel
-                          ? styles.selectedText
-                          : styles.placeholderText
-                      }
-                    >
-                      {PRICING_MODELS.find((p) => p.value === pricingModel)
-                        ?.label || "Select pricing model"}
-                    </Text>
-                  </TouchableOpacity>
-                  {showPricingPicker && (
-                    <View style={styles.pickerContainer}>
-                      {PRICING_MODELS.map((model) => (
-                        <TouchableOpacity
-                          key={model.value}
-                          style={styles.pickerItem}
-                          onPress={() => {
-                            setPricingModel(
-                              model.value as "fixed" | "hourly" | "quote",
-                            );
-                            setShowPricingPicker(false);
-                          }}
-                        >
-                          <Text style={styles.pickerItemText}>
-                            {model.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </View>
-
-                {pricingModel !== "quote" && (
                   <View style={styles.rowContainer}>
                     <View style={[styles.inputContainer, styles.halfWidth]}>
-                      <Text style={styles.label}>
-                        Min Price (₦) {pricingModel === "hourly" ? "/hr" : ""} *
-                      </Text>
+                      <Text style={styles.label}>First name</Text>
                       <TextInput
                         style={styles.input}
-                        placeholder="5000"
-                        value={minPrice}
-                        onChangeText={setMinPrice}
-                        keyboardType="numeric"
+                        placeholder="Jude"
+                        value={firstName}
+                        onChangeText={setFirstName}
                       />
                     </View>
                     <View style={[styles.inputContainer, styles.halfWidth]}>
-                      <Text style={styles.label}>
-                        Max Price (₦) {pricingModel === "hourly" ? "/hr" : ""}
-                      </Text>
+                      <Text style={styles.label}>Last name</Text>
                       <TextInput
                         style={styles.input}
-                        placeholder="15000"
-                        value={maxPrice}
-                        onChangeText={setMaxPrice}
-                        keyboardType="numeric"
+                        placeholder="Mark"
+                        value={lastName}
+                        onChangeText={setLastName}
                       />
                     </View>
                   </View>
-                )}
 
-                {pricingModel === "quote" && (
-                  <View style={styles.infoBox}>
-                    <Text style={styles.infoText}>
-                      💡 Quote-based pricing means you'll provide custom quotes
-                      for each job request
-                    </Text>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Phone number</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="+234 768 585 9595"
+                      value={phoneNumber}
+                      onChangeText={setPhoneNumber}
+                      keyboardType="phone-pad"
+                    />
                   </View>
-                )}
+                </>
+              )}
 
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Availability *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., Mon-Fri 9AM-5PM, Weekends by appointment"
-                    value={availability}
-                    onChangeText={setAvailability}
-                    multiline
-                    numberOfLines={2}
-                  />
-                </View>
+            {/* User Registration - Step 2: Service Preferences */}
+            {isRegister &&
+              currentUserType === "User" &&
+              userRegisterStep === 2 && (
+                <>
+                  <View style={styles.stepIndicator}>
+                    <TouchableOpacity
+                      onPress={() => setUserRegisterStep(1)}
+                      style={styles.backButton}
+                    >
+                      <Text style={styles.backButtonText}>← Back</Text>
+                    </TouchableOpacity>
 
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Service Notes (Optional)</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Additional details about your service, requirements, or special offers..."
-                    value={serviceNotes}
-                    onChangeText={setServiceNotes}
-                    multiline
-                    numberOfLines={4}
-                  />
-                </View>
-              </>
+                    {/* <Text style={styles.stepText}>
+                Step 2 of 2 - Select Your Service Preferences
+              </Text> */}
+                    <View style={styles.stepTitleContainer}>
+                      <View style={styles.stepTitle}>
+                        <Text style={styles.stepSubtext}>
+                          Tell us what you're looking for.
+                        </Text>
+                        <Text style={styles.stepText}>
+                          Help us tailor your feeds!
+                        </Text>
+                      </View>
+
+                      <StepIndicator currentStep={2} />
+                    </View>
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>
+                      What services are you interested in? (Select all that
+                      apply)
+                    </Text>
+                    <View style={styles.serviceGrid}>
+                      {SERVICE_CATEGORIES.map((service) => (
+                        <TouchableOpacity
+                          key={service}
+                          style={[
+                            styles.serviceChip,
+                            selectedServices.includes(service) &&
+                              styles.serviceChipSelected,
+                          ]}
+                          onPress={() => toggleService(service)}
+                        >
+                          <Text
+                            style={[
+                              styles.serviceChipText,
+                              selectedServices.includes(service) &&
+                                styles.serviceChipTextSelected,
+                            ]}
+                          >
+                            {service}
+                          </Text>
+                          {selectedServices.includes(service) && (
+                            <Text style={styles.checkmark}>✓</Text>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </>
+              )}
+
+            {/* Agent Registration - Step 1 */}
+            {isRegister &&
+              currentUserType === "Artisan" &&
+              agentRegisterStep === 1 && (
+                <>
+                  <View style={styles.photoSection}>
+                    <View style={styles.photoContainer}>
+                      <View style={styles.avatarLarge}>
+                        <Text style={styles.avatarText}>📷</Text>
+                      </View>
+                      <TouchableOpacity style={styles.addPhotoButton}>
+                        <Text style={styles.addPhotoIcon}>⊕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.photoLabel}>Add profile photo</Text>
+                  </View>
+
+                  <View style={styles.rowContainer}>
+                    <View style={[styles.inputContainer, styles.halfWidth]}>
+                      <Text style={styles.label}>First name</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Jude"
+                        value={firstName}
+                        onChangeText={setFirstName}
+                      />
+                    </View>
+                    <View style={[styles.inputContainer, styles.halfWidth]}>
+                      <Text style={styles.label}>Last name</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Mark"
+                        value={lastName}
+                        onChangeText={setLastName}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Phone number</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="+234 768 585 9595"
+                      value={phoneNumber}
+                      onChangeText={setPhoneNumber}
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Business Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Bontel Limited"
+                      value={businessName}
+                      onChangeText={setBusinessName}
+                    />
+                  </View>
+                </>
+              )}
+
+            {/* Agent Registration - Step 2 */}
+            {isRegister &&
+              currentUserType === "Artisan" &&
+              agentRegisterStep === 2 && (
+                <>
+                  <View style={styles.stepIndicator}>
+                    <TouchableOpacity
+                      onPress={() => setAgentRegisterStep(1)}
+                      style={styles.backButton}
+                    >
+                      <Text style={styles.backButtonText}>← Back</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.stepTitleContainer}>
+                      <View style={styles.stepTitle}>
+                        <Text style={styles.stepSubtext}>
+                          Let's help clients find you.
+                        </Text>
+                        <Text style={styles.stepText}>
+                          Tell us about your first service!
+                        </Text>
+                      </View>
+
+                      <StepIndicator currentStep={2} />
+                    </View>
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Service Name *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g., Home Plumbing Repair"
+                      value={serviceName}
+                      onChangeText={setServiceName}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Service Category *</Text>
+                    <TouchableOpacity
+                      style={styles.input}
+                      onPress={() => setShowCategoryPicker(!showCategoryPicker)}
+                    >
+                      <Text
+                        style={
+                          serviceCategory
+                            ? styles.selectedText
+                            : styles.placeholderText
+                        }
+                      >
+                        {serviceCategory || "Select a category"}
+                      </Text>
+                    </TouchableOpacity>
+                    {showCategoryPicker && (
+                      <View style={styles.pickerContainer}>
+                        {SERVICE_CATEGORIES.map((category) => (
+                          <TouchableOpacity
+                            key={category}
+                            style={styles.pickerItem}
+                            onPress={() => {
+                              setServiceCategory(category);
+                              setShowCategoryPicker(false);
+                            }}
+                          >
+                            <Text style={styles.pickerItemText}>
+                              {category}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Pricing Model *</Text>
+                    <TouchableOpacity
+                      style={styles.input}
+                      onPress={() => setShowPricingPicker(!showPricingPicker)}
+                    >
+                      <Text
+                        style={
+                          pricingModel
+                            ? styles.selectedText
+                            : styles.placeholderText
+                        }
+                      >
+                        {PRICING_MODELS.find((p) => p.value === pricingModel)
+                          ?.label || "Select pricing model"}
+                      </Text>
+                    </TouchableOpacity>
+                    {showPricingPicker && (
+                      <View style={styles.pickerContainer}>
+                        {PRICING_MODELS.map((model) => (
+                          <TouchableOpacity
+                            key={model.value}
+                            style={styles.pickerItem}
+                            onPress={() => {
+                              setPricingModel(
+                                model.value as "fixed" | "hourly" | "quote",
+                              );
+                              setShowPricingPicker(false);
+                            }}
+                          >
+                            <Text style={styles.pickerItemText}>
+                              {model.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  {pricingModel !== "quote" && (
+                    <View style={styles.rowContainer}>
+                      <View style={[styles.inputContainer, styles.halfWidth]}>
+                        <Text style={styles.label}>
+                          Min Price (₦) {pricingModel === "hourly" ? "/hr" : ""}{" "}
+                          *
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="5000"
+                          value={minPrice}
+                          onChangeText={setMinPrice}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={[styles.inputContainer, styles.halfWidth]}>
+                        <Text style={styles.label}>
+                          Max Price (₦) {pricingModel === "hourly" ? "/hr" : ""}
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="15000"
+                          value={maxPrice}
+                          onChangeText={setMaxPrice}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  {pricingModel === "quote" && (
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoText}>
+                        💡 Quote-based pricing means you'll provide custom
+                        quotes for each job request
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Availability *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g., Mon-Fri 9AM-5PM, Weekends by appointment"
+                      value={availability}
+                      onChangeText={setAvailability}
+                      multiline
+                      numberOfLines={2}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Service Notes (Optional)</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      placeholder="Additional details about your service, requirements, or special offers..."
+                      value={serviceNotes}
+                      onChangeText={setServiceNotes}
+                      multiline
+                      numberOfLines={4}
+                    />
+                  </View>
+                </>
+              )}
+
+            {/* Forgot Password (Only for login) */}
+            {!isRegister && (
+              <TouchableOpacity style={styles.forgotPassword}>
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
             )}
 
-          {/* Forgot Password (Only for login) */}
-          {!isRegister && (
-            <TouchableOpacity style={styles.forgotPassword}>
-              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Terms and Privacy */}
-          {isRegister ? (
-            (currentUserType === "Artisan" && agentRegisterStep === 1) ||
-            (currentUserType === "User" && userRegisterStep === 1) ? null : (
+            {/* Terms and Privacy */}
+            {isRegister ? (
+              (currentUserType === "Artisan" && agentRegisterStep === 1) ||
+              (currentUserType === "User" && userRegisterStep === 1) ? null : (
+                <Text style={styles.termsText}>
+                  By continuing, you agree to our{" "}
+                  <Text style={styles.linkText}>Terms of Service</Text> and{" "}
+                  <Text style={styles.linkText}>Privacy Policy</Text>.
+                </Text>
+              )
+            ) : (
               <Text style={styles.termsText}>
                 By continuing, you agree to our{" "}
                 <Text style={styles.linkText}>Terms of Service</Text> and{" "}
                 <Text style={styles.linkText}>Privacy Policy</Text>.
               </Text>
-            )
-          ) : (
-            <Text style={styles.termsText}>
-              By continuing, you agree to our{" "}
-              <Text style={styles.linkText}>Terms of Service</Text> and{" "}
-              <Text style={styles.linkText}>Privacy Policy</Text>.
-            </Text>
-          )}
+            )}
 
-          {/* Login/Sign Up Button */}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={handleAuth}
-            disabled={isLoading}
-          >
-            <Text style={styles.buttonText}>
-              {isLoading
-                ? "Loading..."
-                : isRegister
-                  ? (currentUserType === "Artisan" &&
-                      agentRegisterStep === 1) ||
-                    (currentUserType === "User" && userRegisterStep === 1)
-                    ? "Next Step"
-                    : "Sign Up"
-                  : "Log in"}
-            </Text>
-          </TouchableOpacity>
+            {/* Login/Sign Up Button */}
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleAuth}
+              disabled={isLoading}
+            >
+              <Text style={styles.buttonText}>
+                {isLoading
+                  ? "Loading..."
+                  : isRegister
+                    ? (currentUserType === "Artisan" &&
+                        agentRegisterStep === 1) ||
+                      (currentUserType === "User" && userRegisterStep === 1)
+                      ? "Next Step"
+                      : "Sign Up"
+                    : "Log in"}
+              </Text>
+            </TouchableOpacity>
 
-          {/* Divider - Only show for login */}
-          {!isRegister && (
-            <>
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>Or Continue with</Text>
-                <View style={styles.dividerLine} />
-              </View>
+            {/* Divider - Only show for login */}
+            {!isRegister && (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>Or Continue with</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-              {/* Switch User Type */}
-              <TouchableOpacity
-                onPress={() =>
-                  setCurrentUserType((prev) =>
-                    prev === "User" ? "Artisan" : "User",
-                  )
-                }
-                style={styles.switchButton}
-              >
-                <Image
-                  source={require("../assets/images/switch.png")}
-                  style={styles.switchIcon}
-                />
-                <Text style={styles.switchText}>
-                  Continue as {userTypeLabel === "Artisan" ? "User" : "Artisan"}
-                </Text>
-              </TouchableOpacity>
+                {/* Switch User Type */}
+                <TouchableOpacity
+                  onPress={() =>
+                    setCurrentUserType((prev) =>
+                      prev === "User" ? "Artisan" : "User",
+                    )
+                  }
+                  style={styles.switchButton}
+                >
+                  <Image
+                    source={require("../assets/images/switch.png")}
+                    style={styles.switchIcon}
+                  />
+                  <Text style={styles.switchText}>
+                    Continue as{" "}
+                    {userTypeLabel === "Artisan" ? "User" : "Artisan"}
+                  </Text>
+                </TouchableOpacity>
 
-              {/* Google Sign In */}
-              <TouchableOpacity style={styles.googleButton}>
-                <Text style={styles.googleIcon}>G</Text>
-                <Text style={styles.googleText}>Sign in with Google</Text>
-              </TouchableOpacity>
-            </>
-          )}
+                {/* Google Sign In */}
+                <TouchableOpacity style={styles.googleButton}>
+                  <Text style={styles.googleIcon}>G</Text>
+                  <Text style={styles.googleText}>Sign in with Google</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
-          {/* Bottom padding for scroll */}
-          <View style={styles.bottomPadding} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </>
+            {/* Bottom padding for scroll */}
+            <View style={styles.bottomPadding} />
+          </ScrollView>
+          {/* </KeyboardAvoidingView> */}
+        </>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 
@@ -959,6 +988,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
     alignItems: "flex-end",
+  },
+  fixedOtpHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 12,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+    // alignItems: "flex-end",
   },
   scrollView: {
     flex: 1,
