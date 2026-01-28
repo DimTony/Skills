@@ -1,0 +1,13 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\src",
+    "\\src\\api",
+    "\\src\\api\\Controllers",
+    "\\src\\api\\Data",
+    "\\src\\api\\DTOs",
+    "\\src\\api\\Models",
+    "\\src\\api\\Services"
+  ],
+  "PreviewInSolutionExplorer": false
+}

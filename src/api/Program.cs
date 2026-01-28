@@ -13,8 +13,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
-
-
+using NetTopologySuite;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,11 +26,15 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.File("logs/api-.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
+// Add NetTopologySuite to Npgsql
+NpgsqlConnection.GlobalTypeMapper.UseNetTopologySuite();
+
+
 builder.Host.UseSerilog();
 
 // Add PostgreSQL DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.UseNetTopologySuite()));
 
 // Add Identity
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
@@ -150,6 +154,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IMailService, MailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IServicePostService, ServicePostService>();
 builder.Services.AddScoped<IWorkerService, WorkerService>();
 
 var app = builder.Build();
