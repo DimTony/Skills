@@ -4,6 +4,7 @@ import type {
   LoginPayload,
   RegisterUserPayload,
   RegisterAgentPayload,
+  ResendOTPPayload,
 } from "../types/api";
 
 export const authApi = {
@@ -30,6 +31,14 @@ export const authApi = {
     console.log("PPP", payload);
     const response = apiClient.post<AuthResponse>(
       "/api/Authentication/Register",
+      payload,
+    );
+    return response;
+  },
+
+  resendOTP: (payload: ResendOTPPayload) => {
+    const response = apiClient.post(
+      "/api/Authentication/ResendVerification",
       payload,
     );
     return response;

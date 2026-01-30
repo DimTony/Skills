@@ -15,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useLogin, useRegisterUser, useRegisterAgent } from "@/hooks/useAuth";
+import { useLogin, useRegisterUser, useRegisterAgent, useResendOTP } from "@/hooks/useAuth";
 
 const SERVICE_CATEGORIES = [
   "Plumbing",
@@ -44,6 +44,7 @@ export default function Login() {
   const loginMutation = useLogin();
   const registerUserMutation = useRegisterUser();
   const registerAgentMutation = useRegisterAgent();
+  const resendOTPMutation = useResendOTP();
   const router = useRouter();
   const { userType } = useLocalSearchParams<{ userType?: string }>();
   const { user, login, authState, lastUserType, resetAppData } = useAuth();
@@ -95,7 +96,7 @@ export default function Login() {
     if (showOTPView && resendTimer > 0) {
       interval = setInterval(() => {
         setResendTimer((prev) => prev - 1);
-      }, 1000);
+      }, 1000) as any;
     }
     return () => clearInterval(interval);
   }, [showOTPView, resendTimer]);
@@ -350,9 +351,12 @@ export default function Login() {
     }
   };
 
-  const handleResendOTP = () => {
+  const handleResendOTP = async () => {
     if (resendTimer === 0) {
       // Call resend OTP API here
+      await resendOTPMutation.mutateAsync({
+        email: registrationEmail
+      });
       setResendTimer(57);
       Alert.alert("Success", "OTP code has been resent to your email");
     }
