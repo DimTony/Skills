@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // const API_BASE_URL = "https://skills-eea5.onrender.com";
 // const API_BASE_URL = "https://skills-production-83eb.up.railway.app";
 const API_BASE_URL = "http://172.20.10.6:5013";
+// Test-NetConnection -ComputerName 192.168.1.100 -Port 5000
 
 export class ApiError extends Error {
   status?: number;
