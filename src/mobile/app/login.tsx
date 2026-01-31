@@ -2,7 +2,7 @@ import StepIndicator from "@/components/step-indicator";
 import { useAuth } from "@/context/AuthContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -88,17 +88,22 @@ export default function Login() {
   const [registrationEmail, setRegistrationEmail] = useState("");
   const [isVerifyingOTP, setIsVerifyingOTP] = useState(false);
   const [resendTimer, setResendTimer] = useState(57);
+  
 
-  // Resend timer countdown
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (showOTPView && resendTimer > 0) {
-      interval = setInterval(() => {
-        setResendTimer((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [showOTPView, resendTimer]);
+// Add this after your state declarations (around line 75)
+const otpInputRefs = useRef<Array<TextInput | null>>([]);
+
+useEffect(() => {
+  let interval: ReturnType<typeof setInterval> | undefined;
+  if (showOTPView && resendTimer > 0) {
+    interval = setInterval(() => {
+      setResendTimer((prev) => prev - 1);
+    }, 1000);
+  }
+  return () => {
+    if (interval) clearInterval(interval);
+  };
+}, [showOTPView, resendTimer]);
 
   useEffect(() => {
     if (authState === "authenticated" && user) {
@@ -346,9 +351,15 @@ export default function Login() {
 
     // Auto-focus next input
     if (value && index < 5) {
-      // You'll need to use refs for auto-focus
+      otpInputRefs.current[index + 1]?.focus();
     }
   };
+
+  const handleOTPKeyPress = (e: any, index: number) => {
+  if (e.nativeEvent.key === 'Backspace' && !otpCode[index] && index > 0) {
+    otpInputRefs.current[index - 1]?.focus();
+  }
+};
 
   const handleResendOTP = () => {
     if (resendTimer === 0) {
@@ -383,7 +394,7 @@ export default function Login() {
             >
               <Text style={styles.otpBackIcon}>←</Text>
             </TouchableOpacity>
-            
+
             <View style={styles.otpHeaderContent}>
               <Text style={styles.otpSubtitle}>We just sent an email</Text>
               <Text style={styles.otpTitle}>Verify your account</Text>
@@ -405,32 +416,43 @@ export default function Login() {
               {otpCode.map((digit, index) => (
                 <TextInput
                   key={index}
+                  ref={(ref) => {
+                    otpInputRefs.current[index] = ref;
+                  }}
                   style={[
                     styles.otpInput,
-                    index === 0 && digit && styles.otpInputFocused,
+                    otpCode[index] && styles.otpInputFocused,
                   ]}
                   value={digit}
                   onChangeText={(value) => handleOTPChange(value, index)}
+                  onKeyPress={(e) => handleOTPKeyPress(e, index)}
                   keyboardType="number-pad"
                   maxLength={1}
                   textAlign="center"
+                  autoFocus={index === 0}
                 />
               ))}
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.resendButton}
               onPress={handleResendOTP}
               disabled={resendTimer > 0}
             >
               <Text style={styles.resendText}>
                 Didn't receive code?{" "}
-                <Text style={[styles.resendLink, resendTimer === 0 && styles.resendLinkActive]}>
+                <Text
+                  style={[
+                    styles.resendLink,
+                    resendTimer === 0 && styles.resendLinkActive,
+                  ]}
+                >
                   Resend
                 </Text>
                 {resendTimer > 0 && (
                   <Text style={styles.resendTimer}>
-                    {" "}- 00:{resendTimer.toString().padStart(2, "0")}
+                    {" "}
+                    - 00:{resendTimer.toString().padStart(2, "0")}
                   </Text>
                 )}
               </Text>
