@@ -53,3 +53,7 @@ export interface RegisterAgentPayload {
     notes?: string;
   };
 }
+
+export interface ResendOTPPayload {
+  email: string;
+}

@@ -75,3 +75,22 @@ export const useRegisterAgent = () => {
     },
   });
 };
+
+export const useResendOTP = () => {
+
+  return useMutation({
+    mutationFn: (payload: { email: string }) => authApi.resendOTP(payload),
+    onSuccess: async (data) => {
+      // await login(data.data.user, data.data.token);
+      return data;
+    },
+    onError: (error: Error) => {
+      const apiError =
+        error instanceof ApiError ? error : normalizeApiError(error);
+
+      // console.error("LOGIN ERROR:", apiError.toJSON());
+
+      Alert.alert("Error", apiError.message || "Login failed");
+    },
+  });
+};
